@@ -6,9 +6,9 @@ import io.circe.parser.parse
 
 object JsonUtils {
 
-  def parseF[F[_]: Sync, T](mayBeJson: String)
+  def parseF[F[_]: Sync, T](maybeJson: String)
                            (implicit decoder: Decoder[T]): F[T] = {
-    parse(mayBeJson) match {
+    parse(maybeJson) match {
       case Right(json) =>
         json.as[T] match {
           case Right(listing)        => Sync[F].delay(listing)
