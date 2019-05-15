@@ -1,6 +1,6 @@
 package io.github.serjorez.scurrency.domain
 
-import java.sql.Timestamp
+import java.time.OffsetDateTime
 
 case class Quote(USD: QuoteUSD)
 
@@ -10,4 +10,4 @@ case class QuoteUSD(price: Double,
                     percent_change_24h: Double,
                     percent_change_7d: Double,
                     market_cap: Double,
-                    last_updated: Timestamp)
+                    last_updated: OffsetDateTime)

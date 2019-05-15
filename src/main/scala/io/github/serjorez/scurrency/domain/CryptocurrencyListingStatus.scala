@@ -1,9 +1,9 @@
 package io.github.serjorez.scurrency.domain
 
-import java.sql.Timestamp
+import java.time.OffsetDateTime
 
-case class CryptocurrencyListingStatus(timestamp: Timestamp,
-                                       errorCode: Int,
-                                       errorMessage: Option[String],
+case class CryptocurrencyListingStatus(timestamp: OffsetDateTime,
+                                       error_code: Int,
+                                       error_message: Option[String],
                                        elapsed: Int,
-                                       creditCount: Int)
+                                       credit_count: Int)

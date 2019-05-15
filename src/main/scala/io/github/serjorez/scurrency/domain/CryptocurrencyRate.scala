@@ -1,6 +1,6 @@
 package io.github.serjorez.scurrency.domain
 
-import java.sql.Timestamp
+import java.time.OffsetDateTime
 
-case class CryptocurrencyRate(timestamp: Timestamp,
+case class CryptocurrencyRate(timestamp: OffsetDateTime,
                               rates_data: Cryptocurrency)
