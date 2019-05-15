@@ -6,7 +6,7 @@ import cats.implicits._
 import cats.effect.{Resource, Sync}
 import io.circe.{Decoder, Encoder}
 import io.circe.syntax._
-import io.github.serjorez.scurrency.utils.JsonUtils.parseF
+import io.github.serjorez.scurrency.utils.JsonUtils.String2JsonConversions
 
 import scala.io.{BufferedSource, Source}
 
@@ -18,7 +18,7 @@ class FileActionsAlgebraInterpreter[F[_]: Sync, T](file: File)
   type Reader = BufferedSource
   type Writer = PrintWriter
 
-  override def read: F[T] = reader(file).use(lines => parseF(lines.mkString))
+  override def read: F[T] = reader(file).use(lines => lines.mkString.parseF)
 
   override def write(content: T): F[Unit] = writer(file).use(_.write(content.asJson.toString()).pure[F])
 

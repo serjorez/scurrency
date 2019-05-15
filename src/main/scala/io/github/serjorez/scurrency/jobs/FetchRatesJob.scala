@@ -8,10 +8,9 @@ import io.github.serjorez.scurrency.config.{FetchRatesConfig, secretKey}
 import io.github.serjorez.scurrency.utils.FileActionsAlgebraInterpreter
 import io.github.serjorez.scurrency.domain.{CryptocurrencyListing, CryptocurrencyRates}
 import io.github.serjorez.scurrency.domain.CryptocurrencyRates.cryptocurrencyRatesSemigroup
-import io.github.serjorez.scurrency.utils.JsonUtils.parseF
+import io.github.serjorez.scurrency.utils.JsonUtils.String2JsonConversions
 import io.circe.generic.auto._
 
-import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
 
 class FetchRatesJob[F[_] : Sync](fetchRatesConfig: FetchRatesConfig,
@@ -40,7 +39,7 @@ class FetchRatesJob[F[_] : Sync](fetchRatesConfig: FetchRatesConfig,
 
   def getCryptocurrencyListing: F[CryptocurrencyListing] = {
     val userDataURI = uri"$uri".params(params: _*)
-    val request = sttp.get(userDataURI).headers(("Accept", "application/json"), ("X-CMC_PRO_API_KEY", secretKey))
+    val request     = sttp.get(userDataURI).headers(("Accept", "application/json"), ("X-CMC_PRO_API_KEY", secretKey))
 
     retryWithBackoff(request.send, delay = backoffDelay, maxRetries).flatMap { response =>
       response.body match {
