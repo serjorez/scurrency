@@ -3,41 +3,43 @@ package io.github.serjorez.scurrency.jobs
 import cats._
 import cats.syntax.all._
 import cats.effect._
-import com.softwaremill.sttp.{SttpBackend, UriContext, sttp}
-import io.circe.parser.parse
 import io.circe.generic.auto._
 import io.circe.syntax._
+import com.softwaremill.sttp.{SttpBackend, UriContext, sttp}
+import io.github.serjorez.scurrency.config.{FetchRatesConfig, secretKey}
+import io.github.serjorez.scurrency.utils.FileActionsAlgebraInterpreter
+import io.github.serjorez.scurrency.domain.{CryptocurrencyListing, CryptocurrencyRates}
+import io.github.serjorez.scurrency.domain.CryptocurrencyListing.parseListing
+import io.github.serjorez.scurrency.domain.CryptocurrencyRates.cryptocurrencyRatesSemigroup
+import io.github.serjorez.scurrency.config.JsonConfig.TimestampFormat
 
 import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
-import io.github.serjorez.scurrency.config.{FetchRatesConfig, secretKey}
-import io.github.serjorez.scurrency.utils.FileActionsAlgebraInterpreter
-import io.github.serjorez.scurrency.domain.CryptocurrencyListing
-import io.github.serjorez.scurrency.config.JsonConfig.TimestampFormat
 
 class FetchRatesJob[F[_] : Async](fetchRatesConfig: FetchRatesConfig,
                                   fileActions: FileActionsAlgebraInterpreter[F],
                                   uri: String,
                                   params: Seq[(String, String)],
-                                  backoffDelay: FiniteDuration = 3 seconds,
-                                  maxRetries: Int = 1)
+                                  backoffDelay: FiniteDuration,
+                                  maxRetries: Int)
                                  (implicit backend: SttpBackend[F, Nothing], timer: Timer[F])
   extends JobAlgebra[F] {
 
-  override def run: F[Unit] = if (fetchRatesConfig.enabled) {
-    for {
-      listing <- getCryptocurrencyListing
-      _ <- appendListing(listing)
-      _ <- timer.sleep(fetchRatesConfig.schedule.interval)
-      _ <- Async[F].defer(run)
-    } yield ()
-  } else Async[F].unit
+  override def run: F[Unit] = if (fetchRatesConfig.enabled) runInfinitly() else Async[F].unit
 
-  def appendListing(listing: CryptocurrencyListing): F[Unit] = for {
-    mayBeJson <- fileActions.read
-    listing   <- parseListing(mayBeJson)
-    result    <- fileActions.write(listing.asJson.toString)
-  } yield result
+  def runInfinitly(coldStart: Boolean = true): F[Unit] = for {
+    listing <- getCryptocurrencyListing
+    _       <- if(coldStart) writeCryptocurrencyRates(listing) else appendCryptocurrencyRates(listing)
+    _       <- timer.sleep(fetchRatesConfig.schedule.interval)
+  } yield Async[F].defer(runInfinitly(false))
+
+  def writeCryptocurrencyRates(listing: CryptocurrencyListing): F[Unit] =
+    fileActions.write(CryptocurrencyRates(listing).asJson.toString)
+
+  def appendCryptocurrencyRates(newListing: CryptocurrencyListing): F[Unit] = for {
+    mayBeJson    <- fileActions.read
+    oldListing   <- parseListing(mayBeJson)
+  } yield fileActions.write((CryptocurrencyRates(oldListing) |+| CryptocurrencyRates(newListing)).asJson.toString)
 
   def getCryptocurrencyListing: F[CryptocurrencyListing] = {
     val userDataURI = uri"$uri".params(params: _*)
@@ -61,19 +63,6 @@ class FetchRatesJob[F[_] : Async](fetchRatesConfig: FetchRatesConfig,
       if (maxRetries > 0) timer.sleep(delay) *> retryWithBackoff(fa, delay * 2, maxRetries - 1)
       else ApplicativeError[F, Throwable].raiseError(error)
     }
-
-  def parseListing(mayBeJson: String): F[CryptocurrencyListing] = {
-    parse(mayBeJson) match {
-      case Right(json) =>
-        json.as[CryptocurrencyListing] match {
-          case Right(listing)        => Async[F].delay(listing)
-          case Left(decodingFailure) => Async[F].raiseError[CryptocurrencyListing](
-            new Exception(s"Failed to decode JSON output: ${decodingFailure.message}"))
-        }
-      case Left(parsingFailure) => Async[F].raiseError[CryptocurrencyListing](
-        new Exception(s"Failed to parse JSON output: ${parsingFailure.message}", parsingFailure.underlying))
-    }
-  }
 }
 
 object FetchRatesJob {
