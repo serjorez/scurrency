@@ -11,7 +11,7 @@ import io.circe.syntax._
 import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
 import io.github.serjorez.scurrency.config.{FetchRatesConfig, secretKey}
-import io.github.serjorez.scurrency.algebra.FileActionsAlgebraInterpreter
+import io.github.serjorez.scurrency.utils.FileActionsAlgebraInterpreter
 import io.github.serjorez.scurrency.domain.CryptocurrencyListing
 import io.github.serjorez.scurrency.config.JsonConfig.TimestampFormat
 

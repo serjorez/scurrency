@@ -1,4 +1,4 @@
-package io.github.serjorez.scurrency.algebra
+package io.github.serjorez.scurrency.utils
 
 import java.io.{File, PrintWriter}
 
