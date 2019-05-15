@@ -1,8 +1,8 @@
 package io.github.serjorez.scurrency.utils
 
-trait FileActionsAlgebra[F[_]] {
+trait FileActionsAlgebra[F[_], T] {
 
-  def read: F[String]
+  def read: F[T]
 
-  def write(content: String): F[Unit]
+  def write(entity: T): F[Unit]
 }

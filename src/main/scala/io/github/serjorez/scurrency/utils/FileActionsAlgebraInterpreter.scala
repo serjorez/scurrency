@@ -4,17 +4,23 @@ import java.io.{File, PrintWriter}
 
 import cats.implicits._
 import cats.effect.{Resource, Sync}
+import io.circe.{Decoder, Encoder}
+import io.circe.syntax._
+import io.github.serjorez.scurrency.utils.JsonUtils.parseF
 
 import scala.io.{BufferedSource, Source}
 
-class FileActionsAlgebraInterpreter[F[_]: Sync](file: File) extends FileActionsAlgebra[F] {
+class FileActionsAlgebraInterpreter[F[_]: Sync, T](file: File)
+                                                  (implicit encoder: Encoder[T],
+                                                            decoder: Decoder[T])
+  extends FileActionsAlgebra[F, T] {
 
   type Reader = BufferedSource
   type Writer = PrintWriter
 
-  override def read: F[String] = reader(file).use(_.mkString.pure[F])
+  override def read: F[T] = reader(file).use(lines => parseF(lines.mkString))
 
-  override def write(content: String): F[Unit] = writer(file).use(_.write(content).pure[F])
+  override def write(content: T): F[Unit] = writer(file).use(_.write(content.asJson.toString()).pure[F])
 
   def createFile: F[Boolean] =
     Sync[F].defer(
@@ -37,6 +43,7 @@ class FileActionsAlgebraInterpreter[F[_]: Sync](file: File) extends FileActionsA
 }
 
 object FileActionsAlgebraInterpreter {
-  def apply[F[_]: Sync](file: File): FileActionsAlgebraInterpreter[F] =
+  def apply[F[_]: Sync, T](file: File)
+                          (implicit encoder: Encoder[T], decoder: Decoder[T]): FileActionsAlgebraInterpreter[F, T] =
     new FileActionsAlgebraInterpreter(file)
 }

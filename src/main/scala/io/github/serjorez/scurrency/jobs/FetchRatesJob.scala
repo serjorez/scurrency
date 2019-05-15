@@ -3,21 +3,20 @@ package io.github.serjorez.scurrency.jobs
 import cats._
 import cats.syntax.all._
 import cats.effect._
-import io.circe.generic.auto._
-import io.circe.syntax._
 import com.softwaremill.sttp.{SttpBackend, UriContext, sttp}
 import io.github.serjorez.scurrency.config.{FetchRatesConfig, secretKey}
 import io.github.serjorez.scurrency.utils.FileActionsAlgebraInterpreter
 import io.github.serjorez.scurrency.domain.{CryptocurrencyListing, CryptocurrencyRates}
-import io.github.serjorez.scurrency.domain.CryptocurrencyListing.parseListing
 import io.github.serjorez.scurrency.domain.CryptocurrencyRates.cryptocurrencyRatesSemigroup
+import io.github.serjorez.scurrency.utils.JsonUtils.parseF
+import io.circe.generic.auto._
 import io.github.serjorez.scurrency.config.JsonConfig.TimestampFormat
 
 import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
 
 class FetchRatesJob[F[_] : Async](fetchRatesConfig: FetchRatesConfig,
-                                  fileActions: FileActionsAlgebraInterpreter[F],
+                                  fileActions: FileActionsAlgebraInterpreter[F, CryptocurrencyRates],
                                   uri: String,
                                   params: Seq[(String, String)],
                                   backoffDelay: FiniteDuration,
@@ -34,12 +33,10 @@ class FetchRatesJob[F[_] : Async](fetchRatesConfig: FetchRatesConfig,
   } yield Async[F].defer(runInfinitly(false))
 
   def writeCryptocurrencyRates(listing: CryptocurrencyListing): F[Unit] =
-    fileActions.write(CryptocurrencyRates(listing).asJson.toString)
+    fileActions.write(CryptocurrencyRates(listing))
 
-  def appendCryptocurrencyRates(newListing: CryptocurrencyListing): F[Unit] = for {
-    mayBeJson    <- fileActions.read
-    oldListing   <- parseListing(mayBeJson)
-  } yield fileActions.write((CryptocurrencyRates(oldListing) |+| CryptocurrencyRates(newListing)).asJson.toString)
+  def appendCryptocurrencyRates(newListing: CryptocurrencyListing): F[Unit] =
+    fileActions.read.flatMap(oldRates => fileActions.write(oldRates |+| CryptocurrencyRates(newListing)))
 
   def getCryptocurrencyListing: F[CryptocurrencyListing] = {
     val userDataURI = uri"$uri".params(params: _*)
@@ -47,7 +44,7 @@ class FetchRatesJob[F[_] : Async](fetchRatesConfig: FetchRatesConfig,
 
     retryWithBackoff(request.send, delay = backoffDelay, maxRetries).flatMap { response =>
       response.body match {
-        case Right(rawBody)     => parseListing(rawBody)
+        case Right(rawBody)     => parseF(rawBody)
         case Left(errorMessage) =>
           Async[F].raiseError[CryptocurrencyListing](
             new Exception(s"Failed to get cryptocurrency listing. Invalid response: (${response.code}) $errorMessage"))
@@ -67,7 +64,7 @@ class FetchRatesJob[F[_] : Async](fetchRatesConfig: FetchRatesConfig,
 
 object FetchRatesJob {
   def apply[F[_] : Async](fetchRatesConfig: FetchRatesConfig,
-                          fileActions: FileActionsAlgebraInterpreter[F],
+                          fileActions: FileActionsAlgebraInterpreter[F, CryptocurrencyRates],
                           uri: String = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest",
                           params: Seq[(String, String)] = Seq(("start", "1"), ("limit", "3"), ("convert", "USD")),
                           backoffDelay: FiniteDuration = 3 seconds,
