@@ -41,13 +41,13 @@ class FetchRatesJob[F[_] : Sync](fetchRatesConfig: FetchRatesConfig,
     val userDataURI = uri"$uri".params(params: _*)
     val request     = sttp.get(userDataURI).headers(("Accept", "application/json"), ("X-CMC_PRO_API_KEY", secretKey))
 
-    retryWithBackoff(request.send, delay = backoffDelay, maxRetries).flatMap { response =>
-      response.body match {
-        case Right(rawBody)     => parseF[F, CryptocurrencyListing](rawBody)
-        case Left(errorMessage) =>
-          Sync[F].raiseError[CryptocurrencyListing](
-            new Exception(s"Failed to get cryptocurrency listing. Invalid response: (${response.code}) $errorMessage"))
-      }
+    retryWithBackoff(request.send, backoffDelay, maxRetries).flatMap {
+      response =>
+        response.body match {
+          case Right(rawBody)     => rawBody.parseF
+          case Left(errorMessage) => Sync[F].raiseError[CryptocurrencyListing](
+              new Exception(s"Failed to get cryptocurrency listing. Invalid response: (${response.code}) $errorMessage"))
+        }
     }
   }
 
@@ -64,10 +64,10 @@ class FetchRatesJob[F[_] : Sync](fetchRatesConfig: FetchRatesConfig,
 object FetchRatesJob {
   def apply[F[_] : Sync](fetchRatesConfig: FetchRatesConfig,
                           fileActions: FileActionsAlgebraInterpreter[F, CryptocurrencyRates],
-                          uri: String = "https://pro-api.coinmarketcap.com/v1/cryptocurrency/listings/latest",
-                          params: Seq[(String, String)] = Seq(("start", "1"), ("limit", "3"), ("convert", "USD")),
-                          backoffDelay: FiniteDuration = 3 seconds,
-                          maxRetries: Int = 1)
+                          uri: String,
+                          params: Seq[(String, String)],
+                          backoffDelay: FiniteDuration,
+                          maxRetries: Int)
                          (implicit backend: SttpBackend[F, Nothing], timer: Timer[F]): FetchRatesJob[F] =
     new FetchRatesJob(fetchRatesConfig, fileActions, uri, params, backoffDelay, maxRetries)
 }

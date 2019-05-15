@@ -11,17 +11,17 @@ import io.github.serjorez.scurrency.utils.FileActionsAlgebraInterpreter
 import scala.concurrent.duration._
 import scala.concurrent.duration.FiniteDuration
 
-class RatesCleanupJob[F[_] : Sync](fetchRatesConfig: RatesCleanupConfig,
+class RatesCleanupJob[F[_] : Sync](ratesCleanupConfig: RatesCleanupConfig,
                                    fileActions: FileActionsAlgebraInterpreter[F, CryptocurrencyRates],
                                    threshold: FiniteDuration)
                                   (implicit timer: Timer[F])
   extends JobAlgebra[F] {
 
-  override def run: F[Unit] = if (fetchRatesConfig.enabled) runInfinitly else Sync[F].unit
+  override def run: F[Unit] = if (ratesCleanupConfig.enabled) runInfinitly else Sync[F].unit
 
   def runInfinitly: F[Unit] = for {
     _ <- cleanCryptocurrencyRates
-    _ <- timer.sleep(fetchRatesConfig.schedule.interval)
+    _ <- timer.sleep(ratesCleanupConfig.schedule.interval)
     _ <- Sync[F].defer(runInfinitly)
   } yield ()
 
@@ -37,9 +37,9 @@ class RatesCleanupJob[F[_] : Sync](fetchRatesConfig: RatesCleanupConfig,
 }
 
 object RatesCleanupJob {
-  def apply[F[_] : Sync](fetchRatesConfig: RatesCleanupConfig,
+  def apply[F[_] : Sync](ratesCleanupConfig: RatesCleanupConfig,
                          fileActions: FileActionsAlgebraInterpreter[F, CryptocurrencyRates],
-                         threshold: FiniteDuration = 60 seconds)
+                         threshold: FiniteDuration)
                         (implicit timer: Timer[F]): RatesCleanupJob[F] =
-    new RatesCleanupJob(fetchRatesConfig, fileActions, threshold)
+    new RatesCleanupJob(ratesCleanupConfig, fileActions, threshold)
 }

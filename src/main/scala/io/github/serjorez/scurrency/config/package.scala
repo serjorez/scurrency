@@ -8,8 +8,8 @@ package object config {
 
   val secretKey: String = sys.env("CMC_SECRET_KEY")
 
-  implicit val jobsDec: Decoder[JobsConfig] = deriveDecoder
-  implicit val frDec: Decoder[FetchRatesConfig] = deriveDecoder
+  implicit val jobsDec: Decoder[JobsConfig]       = deriveDecoder
+  implicit val frDec: Decoder[FetchRatesConfig]   = deriveDecoder
   implicit val rcDec: Decoder[RatesCleanupConfig] = deriveDecoder
-  implicit val scDec: Decoder[ScheduleConfig] = deriveDecoder
+  implicit val scDec: Decoder[ScheduleConfig]     = deriveDecoder
 }
